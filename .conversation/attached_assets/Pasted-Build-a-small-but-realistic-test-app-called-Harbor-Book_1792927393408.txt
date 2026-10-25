@@ -1,0 +1,39 @@
+Build a small but realistic test app called "Harbor Bookings" for testing a migration tool. Use fake data only, never real people or real customer data.
+
+Stack: Replit's standard full-stack setup (React + Vite website, Express API server, Postgres database with Drizzle). Use Clerk for sign-in.
+
+1. Database (Drizzle, Replit Postgres), with real tables and seed data:
+   - services: id, name, description, price_cents, duration_minutes, category (enum: wellness, coaching, workshop), is_active, created_at. Seed 12 rows.
+   - bookings: id, service_id (foreign key), customer_user_id, status (enum: pending, confirmed, cancelled, completed), starts_at, notes, metadata (jsonb), created_at. Seed 60 rows across all statuses.
+   - reviews: id, booking_id (foreign key), rating (1 to 5), comment, created_at. Seed 30 rows.
+   - attachments: id, booking_id (foreign key), file_url, file_name, uploaded_by, created_at. Seed 10 rows that point at real uploaded files (see step 3).
+   - user_roles: user_id, role (enum: admin, staff, customer), created_at.
+   - audit_log: id, actor_user_id, action, details (jsonb), created_at. Seed 40 rows.
+   Add a seed script I can run again safely, and run it now.
+
+2. Sign-in and roles:
+   - Sign up, sign in, sign out and forgot password with Clerk.
+   - New users get the "customer" role in user_roles automatically.
+   - Three areas: /admin (admin only), /staff (staff and admin), /my-bookings (any signed-in user). Anyone without the right role sees an "access denied" page with a Sign out button.
+   - Create 5 test users with example.com emails: 1 admin, 1 staff, 3 customers. Write their emails and passwords into a TEST_USERS.md file in the repo.
+
+3. File storage (Replit Object Storage):
+   - Customers can upload an attachment (image or PDF) to a booking. Admins can upload a service image.
+   - Upload 10 sample files (generated placeholder images and one small PDF) and link them from the attachments table, so stored file links exist in the data.
+   - One private folder (attachments, only the owner and admins can open) and one public folder (service images).
+
+4. Private keys, read only from Replit Secrets by these exact names:
+   - STRIPE_SECRET_KEY (Stripe test mode): a "Pay deposit" button on a booking that creates a Stripe Checkout session in test mode.
+   - STRIPE_WEBHOOK_SECRET: an Express route POST /api/stripe/webhook that verifies the signature and marks the booking "confirmed" on checkout.session.completed.
+   - RESEND_API_KEY: send a booking confirmation email when a booking is confirmed.
+   - OPENAI_API_KEY: an "AI summary" button on the admin page that summarises the last 20 reviews.
+   If a key is missing, that feature shows "Not set up yet" instead of crashing. Never print any key.
+
+5. Server routes (Express, under /api): list services, create a booking, cancel a booking, list my bookings, admin stats (counts per status), the Stripe webhook, and the AI summary. Protect the routes by role on the server, not just in the website.
+
+6. Pages: home with the service list, a service page with "Book", My bookings, Staff calendar (simple list by day), Admin (stats, all bookings, AI summary, upload service image).
+
+7. When done:
+   - Keep everything in the repo (schema, seed script, migrations) so the database can be rebuilt from code.
+   - List every secret name the app uses in a README section called "Secrets", names only.
+   - Connect the project to a new private GitHub repo named harbor-bookings-test and push.
