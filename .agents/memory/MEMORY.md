@@ -1,0 +1,1 @@
+- [Stripe account scope](stripe-account-scope.md) — user wants sandbox only; do not connect a live account yet.
