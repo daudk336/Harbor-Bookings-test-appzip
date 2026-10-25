@@ -53,3 +53,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local credentials and private prompt uploads
+.env
+.env.*
+!.env.example
+attached_assets/

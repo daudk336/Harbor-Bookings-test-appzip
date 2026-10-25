@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Harbor Bookings"
+description = "A realistic appointment-booking app for a fictional harbor-side wellness and coaching studio, with customer, staff, and admin areas for migration testing."
+version = "1.0.0"
+id = "artifacts/harbor-bookings"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22279
+
+[services.development]
+run = "pnpm --filter @workspace/harbor-bookings run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/harbor-bookings", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/harbor-bookings/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22279"
+BASE_PATH = "/"

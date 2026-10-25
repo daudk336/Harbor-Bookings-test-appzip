@@ -1,15 +1,18 @@
-# [Project name]
+# Harbor Bookings
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A fictional appointment-booking app with customer, staff, and administrator areas for migration testing.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/harbor-bookings run dev` — run the web app
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/scripts run seed:harbor` — safely seed fictional demo data and development test users
 - Required env: `DATABASE_URL` — Postgres connection string
+- Optional provider secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `OPENAI_API_KEY`
 
 ## Stack
 
@@ -22,23 +25,30 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/harbor-bookings` — React + Vite web app
+- `artifacts/api-server` — Express API, authentication middleware, and storage routes
+- `lib/db/src/schema/harbor.ts` — Drizzle tables and enums
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `scripts/src/seed-harbor.ts` — idempotent development seed script
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Clerk authenticates users; app roles are stored and enforced in PostgreSQL.
+- Booking uploads are private objects; service images are public objects.
+- Stripe and Resend use the exact secret names listed in the README, with connected integrations as a secure fallback.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Customers can browse services, book and manage appointments, pay a deposit, and attach files. Staff can view the schedule. Administrators can review bookings, stats, activity, customer feedback, and service imagery.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Use fake data only; never seed real people or customer data.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Keep `/api/healthz` and regenerate API client/Zod code whenever the OpenAPI spec changes.
+- Run the database push before the seed command.
 
 ## Pointers
 

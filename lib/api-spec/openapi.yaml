@@ -3,13 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Harbor Bookings API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: bookings
+    description: Customer booking actions
+  - name: services
+    description: Public service catalog
+  - name: staff
+    description: Staff scheduling
+  - name: admin
+    description: Admin reporting and management
+  - name: storage
+    description: Private booking attachments and public service images
 paths:
   /healthz:
     get:
@@ -24,7 +34,333 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getCurrentUserRole
+      tags: [bookings]
+      summary: Get current user's app role
+      responses:
+        "200":
+          description: Current user role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /services:
+    get:
+      operationId: listServices
+      tags: [services]
+      summary: List active services
+      responses:
+        "200":
+          description: Active services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+  /services/{serviceId}:
+    get:
+      operationId: getService
+      tags: [services]
+      summary: Get a service
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      responses:
+        "200":
+          description: Service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "404":
+          description: Service not found
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a booking for the signed-in customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Created booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/mine:
+    get:
+      operationId: listMyBookings
+      tags: [bookings]
+      summary: List bookings for the signed-in customer
+      responses:
+        "200":
+          description: Customer bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingView"
+  /bookings/{bookingId}/cancel:
+    post:
+      operationId: cancelBooking
+      tags: [bookings]
+      summary: Cancel an owned booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Cancelled booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{bookingId}/deposit-checkout:
+    post:
+      operationId: createDepositCheckout
+      tags: [bookings]
+      summary: Create a Stripe test-mode deposit checkout session
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSession"
+  /bookings/{bookingId}/attachments:
+    get:
+      operationId: listBookingAttachments
+      tags: [bookings]
+      summary: List attachments for an owned booking or an admin
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Booking attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attachment"
+    post:
+      operationId: createBookingAttachment
+      tags: [bookings]
+      summary: Save uploaded attachment metadata
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachmentInput"
+      responses:
+        "201":
+          description: Saved attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+  /bookings/{bookingId}/attachments/upload-url:
+    post:
+      operationId: requestAttachmentUploadUrl
+      tags: [storage]
+      summary: Request a private upload URL for a booking attachment
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: Presigned upload details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrl"
+  /staff/calendar:
+    get:
+      operationId: getStaffCalendar
+      tags: [staff]
+      summary: List upcoming bookings for the staff calendar
+      responses:
+        "200":
+          description: Staff schedule
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingView"
+  /admin/bookings:
+    get:
+      operationId: listAdminBookings
+      tags: [admin]
+      summary: List all bookings for administrators
+      responses:
+        "200":
+          description: All bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingView"
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get booking status counts and review average
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+  /admin/activity:
+    get:
+      operationId: getAdminActivity
+      tags: [admin]
+      summary: Get the latest audit events
+      responses:
+        "200":
+          description: Recent audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditEvent"
+  /admin/reviews/recent:
+    get:
+      operationId: listRecentReviews
+      tags: [admin]
+      summary: Get the latest reviews
+      responses:
+        "200":
+          description: Recent reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+  /admin/reviews/summary:
+    post:
+      operationId: summarizeRecentReviews
+      tags: [admin]
+      summary: Summarize the last 20 reviews
+      responses:
+        "200":
+          description: AI summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewSummary"
+  /admin/services/{serviceId}/image-upload/upload-url:
+    post:
+      operationId: requestServiceImageUploadUrl
+      tags: [storage]
+      summary: Request a public upload URL for a service image
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: Presigned upload details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrl"
+  /admin/services/{serviceId}/image:
+    put:
+      operationId: updateServiceImage
+      tags: [admin]
+      summary: Save the uploaded public service image URL
+      parameters:
+        - $ref: "#/components/parameters/ServiceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceImageInput"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+  /stripe/webhook:
+    post:
+      operationId: stripeWebhook
+      tags: [bookings]
+      summary: Verify Stripe events and confirm paid bookings
+      responses:
+        "200":
+          description: Webhook accepted
+  /storage/public-objects/{objectPath}:
+    get:
+      operationId: getPublicObject
+      tags: [storage]
+      summary: Serve a public service image
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public object
+  /storage/objects/{objectPath}:
+    get:
+      operationId: getPrivateObject
+      tags: [storage]
+      summary: Serve an attachment to its owner or an admin
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Private object
 components:
+  parameters:
+    ServiceId:
+      name: serviceId
+      in: path
+      required: true
+      schema:
+        type: integer
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        type: integer
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +369,128 @@ components:
           type: string
       required:
         - status
+    Service:
+      type: object
+      required: [id, name, description, priceCents, durationMinutes, category, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        priceCents: { type: integer }
+        durationMinutes: { type: integer }
+        category: { type: string, enum: [wellness, coaching, workshop] }
+        isActive: { type: boolean }
+        imageUrl: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+    Booking:
+      type: object
+      required: [id, serviceId, customerUserId, status, startsAt, notes, metadata, createdAt]
+      properties:
+        id: { type: integer }
+        serviceId: { type: integer }
+        customerUserId: { type: string }
+        status: { type: string, enum: [pending, confirmed, cancelled, completed] }
+        startsAt: { type: string, format: date-time }
+        notes: { type: [string, "null"] }
+        metadata: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    BookingView:
+      allOf:
+        - $ref: "#/components/schemas/Booking"
+        - type: object
+          required: [serviceName, servicePriceCents, serviceDurationMinutes]
+          properties:
+            serviceName: { type: string }
+            servicePriceCents: { type: integer }
+            serviceDurationMinutes: { type: integer }
+            customerEmail: { type: [string, "null"] }
+            customerName: { type: [string, "null"] }
+    BookingInput:
+      type: object
+      required: [serviceId, startsAt]
+      properties:
+        serviceId: { type: integer }
+        startsAt: { type: string, format: date-time }
+        notes: { type: [string, "null"] }
+    Attachment:
+      type: object
+      required: [id, bookingId, fileUrl, fileName, uploadedBy, createdAt]
+      properties:
+        id: { type: integer }
+        bookingId: { type: integer }
+        fileUrl: { type: string }
+        fileName: { type: string }
+        uploadedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+    AttachmentInput:
+      type: object
+      required: [fileUrl, fileName]
+      properties:
+        fileUrl: { type: string, minLength: 1 }
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+    UploadRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        size: { type: integer, minimum: 1, maximum: 10485760 }
+        contentType: { type: string, enum: [image/jpeg, image/png, image/webp, application/pdf] }
+    UploadUrl:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
+    ServiceImageInput:
+      type: object
+      required: [imageUrl]
+      properties:
+        imageUrl: { type: string, minLength: 1 }
+    CurrentUser:
+      type: object
+      required: [userId, role]
+      properties:
+        userId: { type: string }
+        role: { type: string, enum: [admin, staff, customer] }
+    AdminStats:
+      type: object
+      required: [total, pending, confirmed, cancelled, completed, averageRating, reviewCount]
+      properties:
+        total: { type: integer }
+        pending: { type: integer }
+        confirmed: { type: integer }
+        cancelled: { type: integer }
+        completed: { type: integer }
+        averageRating: { type: number }
+        reviewCount: { type: integer }
+    AuditEvent:
+      type: object
+      required: [id, actorUserId, action, details, createdAt]
+      properties:
+        id: { type: integer }
+        actorUserId: { type: string }
+        action: { type: string }
+        details: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    Review:
+      type: object
+      required: [id, bookingId, rating, comment, createdAt, serviceName]
+      properties:
+        id: { type: integer }
+        bookingId: { type: integer }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        createdAt: { type: string, format: date-time }
+        serviceName: { type: string }
+    ReviewSummary:
+      type: object
+      required: [summary, reviewCount]
+      properties:
+        summary: { type: string }
+        reviewCount: { type: integer }
+    CheckoutSession:
+      type: object
+      required: [checkoutUrl]
+      properties:
+        checkoutUrl: { type: string, format: uri }
 
