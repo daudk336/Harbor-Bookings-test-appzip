@@ -16,12 +16,20 @@ The seed command is safe to rerun. It provisions five Clerk development test acc
 
 ## Secrets
 
+- `DATABASE_URL`
+- `CLERK_SECRET_KEY`
+- `CLERK_PUBLISHABLE_KEY`
+- `VITE_CLERK_PUBLISHABLE_KEY`
+- `PRIVATE_OBJECT_DIR`
+- `PUBLIC_OBJECT_SEARCH_PATHS`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
 - `OPENAI_API_KEY`
 
-If an optional provider credential is absent, the related app feature reports that it is not set up yet. Stripe and Resend may also use their connected Replit integrations.
+## Optional integrations
+
+If an optional provider credential is absent, the related app feature reports “Not set up yet”. Stripe checkout accepts test-mode keys only. Clerk and App Storage configuration are managed by Replit.
 
 ## File storage
 
@@ -29,4 +37,6 @@ Booking attachments use private App Storage objects and are only served to the b
 
 ## Database
 
-Drizzle schema source: `lib/db/src/schema/harbor.ts`. API contracts are maintained in `lib/api-spec/openapi.yaml`.
+Drizzle schema source: `lib/db/src/schema/harbor.ts`. SQL migrations are checked in under `lib/db/drizzle/`. API contracts are maintained in `lib/api-spec/openapi.yaml`.
+
+For a new, empty database, run `pnpm --filter @workspace/db run migrate`, then run the seed command. The existing development database was initialized with Drizzle push; do not apply the initial migration over its already-created tables.

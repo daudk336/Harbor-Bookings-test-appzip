@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   integer,
   jsonb,
   pgEnum,
@@ -66,7 +68,9 @@ export const reviewsTable = pgTable("reviews", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  check("reviews_rating_range", sql`${table.rating} between 1 and 5`),
+]);
 
 export const attachmentsTable = pgTable("attachments", {
   id: serial("id").primaryKey(),

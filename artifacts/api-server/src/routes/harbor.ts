@@ -42,7 +42,6 @@ import {
   UpdateServiceImageParams,
   UpdateServiceImageResponse,
 } from "@workspace/api-zod";
-import { ReplitConnectors } from "@replit/connectors-sdk";
 import { createClerkClient } from "@clerk/backend";
 import { currentUserId, audit, requireRole, roleForUser } from "../lib/harbor-auth";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -50,7 +49,6 @@ import { setObjectAclPolicy } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
-const connectors = new ReplitConnectors();
 const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 async function bookingViews(userId?: string) {
@@ -231,21 +229,13 @@ router.post("/bookings/:bookingId/deposit-checkout", async (req, res): Promise<v
   }
   const origin = `${req.protocol}://${req.get("host")}`;
   const depositCents = Math.max(500, Math.round(booking.priceCents * 0.25));
-  const fields = new URLSearchParams({
-    mode: "payment",
-    "line_items[0][price_data][currency]": "cad",
-    "line_items[0][price_data][unit_amount]": String(depositCents),
-    "line_items[0][price_data][product_data][name]": `${booking.serviceName} deposit`,
-    "line_items[0][quantity]": "1",
-    success_url: `${origin}/my-bookings?payment=success`,
-    cancel_url: `${origin}/my-bookings?payment=cancelled`,
-    client_reference_id: String(booking.id),
-    "metadata[bookingId]": String(booking.id),
-  });
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey?.startsWith("sk_test_")) {
+    res.status(503).json({ error: "Not set up yet" });
+    return;
+  }
   try {
-    let checkoutUrl: string | null | undefined;
-    if (process.env.STRIPE_SECRET_KEY) {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+      const stripe = new Stripe(stripeKey);
       const created = await stripe.checkout.sessions.create({
         mode: "payment",
         line_items: [{
@@ -261,16 +251,7 @@ router.post("/bookings/:bookingId/deposit-checkout", async (req, res): Promise<v
         client_reference_id: String(booking.id),
         metadata: { bookingId: String(booking.id) },
       });
-      checkoutUrl = created.url;
-    } else {
-      const response = await connectors.proxy("stripe", "/v1/checkout/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: fields.toString(),
-      });
-      if (!response.ok) throw new Error("Stripe is not configured");
-      checkoutUrl = (await response.json() as { url?: string }).url;
-    }
+    const checkoutUrl = created.url;
     if (!checkoutUrl) throw new Error("Checkout session URL missing");
     res.json(CreateDepositCheckoutResponse.parse({ checkoutUrl }));
   } catch (error) {
@@ -314,6 +295,10 @@ router.post("/bookings/:bookingId/attachments/upload-url", async (req, res): Pro
   }
   const uploadURL = await storage.getObjectEntityUploadURL();
   const objectPath = storage.normalizeObjectEntityPath(uploadURL);
+  await audit(userId, "attachment.upload.requested", {
+    objectPath,
+    bookingId: params.data.bookingId,
+  });
   res.json(RequestAttachmentUploadUrlResponse.parse({ uploadURL, objectPath }));
 });
 
@@ -332,6 +317,19 @@ router.post("/bookings/:bookingId/attachments", async (req, res): Promise<void> 
   }
   if (!body.data.fileUrl.startsWith("/objects/")) {
     res.status(400).json({ error: "Invalid object path" });
+    return;
+  }
+  const [issuedUpload] = await db.select({ id: auditLogTable.id })
+    .from(auditLogTable)
+    .where(and(
+      eq(auditLogTable.actorUserId, userId),
+      eq(auditLogTable.action, "attachment.upload.requested"),
+      sql`${auditLogTable.details}->>'objectPath' = ${body.data.fileUrl}`,
+      sql`${auditLogTable.details}->>'bookingId' = ${String(params.data.bookingId)}`,
+      sql`${auditLogTable.createdAt} > now() - interval '1 hour'`,
+    )).limit(1);
+  if (!issuedUpload) {
+    res.status(403).json({ error: "This upload does not belong to this booking" });
     return;
   }
   const objectFile = await storage.getObjectEntityFile(body.data.fileUrl);
@@ -557,6 +555,10 @@ router.post("/stripe/webhook", async (req, res): Promise<void> => {
     return;
   }
   if (event.type === "checkout.session.completed") {
+    if (event.livemode) {
+      res.status(400).json({ error: "Only Stripe test-mode events are supported" });
+      return;
+    }
     const session = event.data.object as Stripe.Checkout.Session;
     const bookingId = Number(session.metadata?.bookingId ?? session.client_reference_id);
     if (Number.isSafeInteger(bookingId) && bookingId > 0) {
@@ -575,6 +577,12 @@ router.post("/stripe/webhook", async (req, res): Promise<void> => {
 });
 
 async function sendBookingConfirmation(userId: string, bookingId: number, startsAt: Date) {
+  if (!process.env.RESEND_API_KEY) {
+    await db.update(bookingsTable).set({
+      metadata: sql`coalesce(${bookingsTable.metadata}, '{}'::jsonb) || '{"confirmationEmailStatus":"Not set up yet"}'::jsonb`,
+    }).where(eq(bookingsTable.id, bookingId));
+    return;
+  }
   try {
     const user = await clerk.users.getUser(userId);
     const email = user.primaryEmailAddress?.emailAddress;
@@ -597,12 +605,6 @@ async function sendBookingConfirmation(userId: string, bookingId: number, starts
       if (!response.ok) throw new Error("Resend request failed");
       return;
     }
-    const response = await connectors.proxy("resend", "/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) throw new Error("Resend request failed");
   } catch (error) {
     // Payment confirmation is durable even if email delivery is temporarily unavailable.
     const { logger } = await import("../lib/logger");

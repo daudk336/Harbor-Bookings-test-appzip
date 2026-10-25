@@ -35,7 +35,7 @@ A fictional appointment-booking app with customer, staff, and administrator area
 
 - Clerk authenticates users; app roles are stored and enforced in PostgreSQL.
 - Booking uploads are private objects; service images are public objects.
-- Stripe and Resend use the exact secret names listed in the README, with connected integrations as a secure fallback.
+- Optional providers use the exact secret names listed in the README. Stripe accepts only test-mode keys and events.
 
 ## Product
 
